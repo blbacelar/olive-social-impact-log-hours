@@ -1,0 +1,168 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAllowedEmail() {
+      return request.auth.token.email is string
+        && (
+          request.auth.token.email.matches(
+            '.*@olivesocialimpact\\.com$'
+          )
+          || request.auth.token.email in [
+            "rosalyn@olivesocialimpact.com",
+            "bacelardigitaltech@gmail.com"
+          ]
+        );
+    }
+
+    function isMember() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && isAllowedEmail();
+    }
+
+    function isAdmin() {
+      return isMember()
+        && request.auth.token.email in [
+          "rosalyn@olivesocialimpact.com",
+          "bacelardigitaltech@gmail.com"
+        ];
+    }
+
+    function profilePath(userId) {
+      return /databases/$(database)/documents/user_profiles/$(userId);
+    }
+
+    function settingsPath() {
+      return /databases/$(database)/documents/app_settings/time_tracking;
+    }
+
+    function validDate(date) {
+      return date is string
+        && date.matches(
+          '^\\d{4}-((0[13578]|1[02])-(0[1-9]|[12]\\d|3[01])|(0[469]|11)-(0[1-9]|[12]\\d|30)|02-(0[1-9]|1\\d|2[0-9]))$'
+        );
+    }
+
+    function activeProject(project) {
+      return project is string
+        && (
+          (
+            exists(settingsPath())
+            && project in get(settingsPath()).data.projects
+          )
+          || (
+            !exists(settingsPath())
+            && project in [
+              "Governance Consulting",
+              "Policy Development",
+              "Client Facilitation",
+              "Research & Analysis",
+              "Platform Development"
+            ]
+          )
+        );
+    }
+
+    function validLogData(data) {
+      return data.userId is string
+        && data.userName is string
+        && data.userName.size() > 0
+        && data.project is string
+        && data.project.size() > 0
+        && data.description is string
+        && data.description.size() > 0
+        && validDate(data.date)
+        && data.totalMinutes is int
+        && data.totalMinutes > 0
+        && data.periodId is string
+        && data.status in ["pending", "approved", "paid"];
+    }
+
+    function usesConfiguredRate(data) {
+      return exists(profilePath(request.auth.uid))
+        && data.rate == get(profilePath(request.auth.uid)).data.get(
+          "hourlyRate",
+          null
+        );
+    }
+
+    match /time_logs/{logId} {
+      allow create: if isMember()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.periodId == ""
+        && validLogData(request.resource.data)
+        && activeProject(request.resource.data.project)
+        && usesConfiguredRate(request.resource.data);
+      allow read: if isMember()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow update: if (
+          isAdmin()
+          && validLogData(request.resource.data)
+          && (
+            request.resource.data.status == "pending"
+            || request.resource.data.rate is number
+          )
+        )
+        || (
+          isMember()
+          && resource.data.userId == request.auth.uid
+          && resource.data.status == "pending"
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == "pending"
+          && validLogData(request.resource.data)
+          && (
+            request.resource.data.project == resource.data.project
+            || activeProject(request.resource.data.project)
+          )
+          && request.resource.data.rate == resource.data.rate
+          && request.resource.data.periodId == resource.data.periodId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "project",
+            "description",
+            "date",
+            "totalMinutes",
+            "updatedAt"
+          ])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /app_settings/time_tracking {
+      allow read: if isMember();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /user_profiles/{userId} {
+      allow read: if isMember()
+        && (isAdmin() || request.auth.uid == userId);
+      allow create: if isAdmin()
+        || (
+          isMember()
+          && request.auth.uid == userId
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.displayName is string
+          && request.resource.data.get("hourlyRate", null) == null
+        );
+      allow update: if isAdmin()
+        || (
+          isMember()
+          && request.auth.uid == userId
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.displayName is string
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "email",
+            "displayName",
+            "lastSeenAt"
+          ])
+        );
+      allow delete: if false;
+    }
+  }
+}
