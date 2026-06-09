@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getAuthErrorMessage,
   isAllowedSignInEmail,
   isOrganizationEmail,
   normalizeEmail,
@@ -27,5 +28,11 @@ describe("authentication email policy", () => {
 
   it("preserves explicitly configured admin sign-in access", () => {
     expect(isAllowedSignInEmail("bacelardigitaltech@gmail.com")).toBe(true);
+  });
+
+  it("explains when Firebase Authentication is not configured", () => {
+    expect(
+      getAuthErrorMessage({ code: "auth/configuration-not-found" }),
+    ).toBe("Firebase Authentication is not configured for this project yet.");
   });
 });

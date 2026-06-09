@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  getIdToken,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -108,6 +109,7 @@ export function useAuth() {
       runAuthAction(async () => {
         if (!auth.currentUser) throw { code: "auth/user-not-found" };
         await reload(auth.currentUser);
+        await getIdToken(auth.currentUser, true);
         setAuthRevision((revision) => revision + 1);
       }),
     resetPassword: (email: string) =>

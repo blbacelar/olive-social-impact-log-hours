@@ -332,9 +332,11 @@ export function LogTable({
                             Edit
                           </Button>
                         )}
-                        {isAdmin && (
+                        {(isAdmin ||
+                          (log.userId === currentUserId &&
+                            log.status === "pending")) && (
                           <Button
-                            aria-label="Delete log"
+                            aria-label="Delete time entry"
                             size="icon"
                             variant="ghost"
                             onClick={() => setDeletingLog(log)}

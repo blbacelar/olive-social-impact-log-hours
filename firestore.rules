@@ -130,7 +130,12 @@ service cloud.firestore {
             "updatedAt"
           ])
         );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin()
+        || (
+          isMember()
+          && resource.data.userId == request.auth.uid
+          && resource.data.status == "pending"
+        );
     }
 
     match /app_settings/time_tracking {

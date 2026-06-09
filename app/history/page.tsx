@@ -15,7 +15,7 @@ export default function HistoryPage() {
         description={
           isAdmin
             ? "Review, approve, edit, or delete recorded time across the team."
-            : "Review your entries and follow their approval and payment status."
+            : "Review your entries, edit or delete pending time, and follow approval and payment status."
         }
       />
       <LogTable

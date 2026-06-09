@@ -25,6 +25,8 @@ export function getAuthErrorMessage(error: unknown) {
       : "";
 
   const messages: Record<string, string> = {
+    "auth/configuration-not-found":
+      "Firebase Authentication is not configured for this project yet.",
     "auth/email-already-in-use": "An account already exists for this email.",
     "auth/invalid-credential": "The email or password is incorrect.",
     "auth/invalid-email": "Enter a valid email address.",
